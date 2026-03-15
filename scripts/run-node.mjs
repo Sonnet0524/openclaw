@@ -8,7 +8,10 @@ import { pathToFileURL } from "node:url";
 const compiler = "tsdown";
 const compilerArgs = ["exec", compiler, "--no-clean"];
 
-export const runNodeWatchedPaths = ["src", "tsconfig.json", "package.json"];
+const runNodeSourceRoots = ["src", "extensions"];
+const runNodeConfigFiles = ["tsconfig.json", "package.json", "tsdown.config.ts"];
+
+export const runNodeWatchedPaths = [...runNodeSourceRoots, ...runNodeConfigFiles];
 
 const statMtime = (filePath, fsImpl = fs) => {
   try {
@@ -118,14 +121,15 @@ const readBuildStamp = (deps) => {
   }
 };
 
-const hasSourceMtimeChanged = (stampMtime, deps) => {
-  const srcMtime = findLatestMtime(
-    deps.srcRoot,
-    (candidate) => isExcludedSource(candidate, deps.srcRoot),
-    deps,
-  );
-  return srcMtime != null && srcMtime > stampMtime;
-};
+const hasSourceMtimeChanged = (stampMtime, deps) =>
+  deps.sourceRoots.some((sourceRoot) => {
+    const sourceMtime = findLatestMtime(
+      sourceRoot,
+      (candidate) => isExcludedSource(candidate, sourceRoot),
+      deps,
+    );
+    return sourceMtime != null && sourceMtime > stampMtime;
+  });
 
 const shouldBuild = (deps) => {
   if (deps.env.OPENCLAW_FORCE_BUILD === "1") {
@@ -223,8 +227,8 @@ export async function runNodeMain(params = {}) {
   deps.distRoot = path.join(deps.cwd, "dist");
   deps.distEntry = path.join(deps.distRoot, "/entry.js");
   deps.buildStampPath = path.join(deps.distRoot, ".buildstamp");
-  deps.srcRoot = path.join(deps.cwd, "src");
-  deps.configFiles = [path.join(deps.cwd, "tsconfig.json"), path.join(deps.cwd, "package.json")];
+  deps.sourceRoots = runNodeSourceRoots.map((sourceRoot) => path.join(deps.cwd, sourceRoot));
+  deps.configFiles = runNodeConfigFiles.map((filePath) => path.join(deps.cwd, filePath));
 
   if (!shouldBuild(deps)) {
     return await runOpenClaw(deps);
