@@ -161,4 +161,65 @@ describe("run-node script", () => {
       expect(exitCode).toBe(23);
     });
   });
+
+  it("rebuilds when an extension source file is newer than the build stamp", async () => {
+    await withTempDir(async (tmp) => {
+      const extensionPath = path.join(tmp, "extensions", "telegram", "src", "audit.ts");
+      const distEntryPath = path.join(tmp, "dist", "entry.js");
+      const buildStampPath = path.join(tmp, "dist", ".buildstamp");
+      const tsconfigPath = path.join(tmp, "tsconfig.json");
+      const packageJsonPath = path.join(tmp, "package.json");
+
+      await fs.mkdir(path.dirname(extensionPath), { recursive: true });
+      await fs.mkdir(path.dirname(distEntryPath), { recursive: true });
+      await fs.writeFile(extensionPath, "export const extensionValue = 1;\n", "utf-8");
+      await fs.writeFile(tsconfigPath, "{}\n", "utf-8");
+      await fs.writeFile(packageJsonPath, '{"name":"openclaw-test"}\n', "utf-8");
+      await fs.writeFile(distEntryPath, "console.log('built');\n", "utf-8");
+      await fs.writeFile(buildStampPath, '{"head":"abc123"}\n', "utf-8");
+
+      const stampTime = new Date("2026-03-13T12:00:00.000Z");
+      const newerTime = new Date("2026-03-13T12:05:00.000Z");
+      await fs.utimes(tsconfigPath, stampTime, stampTime);
+      await fs.utimes(packageJsonPath, stampTime, stampTime);
+      await fs.utimes(distEntryPath, stampTime, stampTime);
+      await fs.utimes(buildStampPath, stampTime, stampTime);
+      await fs.utimes(extensionPath, newerTime, newerTime);
+
+      const spawnCalls: string[][] = [];
+      const spawn = (cmd: string, args: string[]) => {
+        spawnCalls.push([cmd, ...args]);
+        return createExitedProcess(0);
+      };
+      const spawnSync = (cmd: string, args: string[]) => {
+        if (cmd === "git" && args[0] === "rev-parse") {
+          return { status: 0, stdout: "abc123\n" };
+        }
+        if (cmd === "git" && args[0] === "status") {
+          return { status: 0, stdout: " M extensions/telegram/src/audit.ts\n" };
+        }
+        return { status: 1, stdout: "" };
+      };
+
+      const { runNodeMain } = await import("../../scripts/run-node.mjs");
+      const exitCode = await runNodeMain({
+        cwd: tmp,
+        args: ["gateway", "--force"],
+        env: {
+          ...process.env,
+          OPENCLAW_RUNNER_LOG: "0",
+        },
+        spawn,
+        spawnSync,
+        execPath: process.execPath,
+        platform: process.platform,
+      });
+
+      expect(exitCode).toBe(0);
+      expect(spawnCalls).toEqual([
+        ["pnpm", "exec", "tsdown", "--no-clean"],
+        [process.execPath, "openclaw.mjs", "gateway", "--force"],
+      ]);
+    });
+  });
 });
