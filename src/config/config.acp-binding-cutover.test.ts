@@ -163,6 +163,15 @@ describe("ACP binding cutover schema", () => {
           match: {
             channel: "feishu",
             accountId: "default",
+            peer: { kind: "direct", id: "user_123" },
+          },
+        },
+        {
+          type: "acp",
+          agentId: "codex",
+          match: {
+            channel: "feishu",
+            accountId: "default",
             peer: { kind: "group", id: "oc_group_chat:topic:om_topic_root:sender:ou_user_123" },
           },
         },

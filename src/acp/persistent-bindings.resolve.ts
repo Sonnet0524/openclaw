@@ -28,6 +28,17 @@ function normalizeBindingChannel(value: string | undefined): ConfiguredAcpBindin
   return null;
 }
 
+function isSupportedFeishuDirectConversationId(conversationId: string): boolean {
+  const trimmed = conversationId.trim();
+  if (!trimmed || trimmed.includes(":")) {
+    return false;
+  }
+  if (trimmed.startsWith("oc_") || trimmed.startsWith("on_")) {
+    return false;
+  }
+  return true;
+}
+
 function resolveAccountMatchPriority(match: string | undefined, actual: string): 0 | 1 | 2 {
   const trimmed = (match ?? "").trim();
   if (!trimmed) {
@@ -407,8 +418,7 @@ export function resolveConfiguredAcpBindingRecord(params: {
       !parsed ||
       (parsed.scope !== "group_topic" &&
         parsed.scope !== "group_topic_sender" &&
-        !parsed.canonicalConversationId.startsWith("ou_") &&
-        !parsed.canonicalConversationId.startsWith("on_"))
+        !isSupportedFeishuDirectConversationId(parsed.canonicalConversationId))
     ) {
       return null;
     }
@@ -429,8 +439,7 @@ export function resolveConfiguredAcpBindingRecord(params: {
           !targetParsed ||
           (targetParsed.scope !== "group_topic" &&
             targetParsed.scope !== "group_topic_sender" &&
-            !targetParsed.canonicalConversationId.startsWith("ou_") &&
-            !targetParsed.canonicalConversationId.startsWith("on_"))
+            !isSupportedFeishuDirectConversationId(targetParsed.canonicalConversationId))
         ) {
           return null;
         }

@@ -88,16 +88,23 @@ const AcpBindingSchema = z
           "Telegram ACP bindings require canonical topic IDs in the form -1001234567890:topic:42.",
       });
     }
-    if (
-      channel === "feishu" &&
-      !/^(ou_[^:]+|oc_[^:]+:topic:[^:]+(?::sender:ou_[^:]+)?)$/.test(peerId)
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["match", "peer", "id"],
-        message:
-          "Feishu ACP bindings require canonical DM IDs (ou_xxx) or topic IDs in the form oc_group:topic:om_root[:sender:ou_xxx].",
-      });
+    if (channel === "feishu") {
+      const peerKind = value.match.peer?.kind;
+      const isDirectId =
+        (peerKind === "direct" || peerKind === "dm") &&
+        /^[^:]+$/.test(peerId) &&
+        !peerId.startsWith("oc_") &&
+        !peerId.startsWith("on_");
+      const isTopicId =
+        peerKind === "group" && /^oc_[^:]+:topic:[^:]+(?::sender:ou_[^:]+)?$/.test(peerId);
+      if (!isDirectId && !isTopicId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["match", "peer", "id"],
+          message:
+            "Feishu ACP bindings require direct peer IDs for DMs or topic IDs in the form oc_group:topic:om_root[:sender:ou_xxx].",
+        });
+      }
     }
   });
 

@@ -353,6 +353,26 @@ describe("resolveConfiguredAcpBindingRecord", () => {
     expect(resolved?.record.targetSessionKey).toContain("agent:codex:acp:binding:feishu:default:");
   });
 
+  it("resolves Feishu DM bindings using user_id fallback peer ids", () => {
+    const cfg = createCfgWithBindings([
+      createFeishuBinding({
+        agentId: "codex",
+        conversationId: "user_123",
+      }),
+    ]);
+
+    const resolved = resolveConfiguredAcpBindingRecord({
+      cfg,
+      channel: "feishu",
+      accountId: "default",
+      conversationId: "user_123",
+    });
+
+    expect(resolved?.spec.channel).toBe("feishu");
+    expect(resolved?.spec.conversationId).toBe("user_123");
+    expect(resolved?.record.targetSessionKey).toContain("agent:codex:acp:binding:feishu:default:");
+  });
+
   it("resolves Feishu topic bindings with parent chat ids", () => {
     const cfg = createCfgWithBindings([
       createFeishuBinding({
